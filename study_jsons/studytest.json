@@ -1,0 +1,20 @@
+{
+    "study_name": "studytest",
+    "executable_path": "/mnt/c/study.ext",
+    "inputs": [
+        {
+            "name": "cheese",
+            "lower_bound": 0.0,
+            "upper_bound": 5.5
+        },
+        {
+            "name": "bacon",
+            "lower_bound": -6.6,
+            "upper_bound": 6.0
+        }
+    ],
+    "outputs": [
+        "stability",
+        "tastiness"
+    ]
+}

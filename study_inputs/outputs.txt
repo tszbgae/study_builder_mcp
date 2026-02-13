@@ -1,0 +1,4 @@
+tastiness
+calories
+cost
+stability
