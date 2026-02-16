@@ -297,31 +297,6 @@ def get_study_status(study_name: str) -> str:
         
     return "\n".join(report)
 
-@mcp.tool()
-def run_study_script(script_path: str = "study.py") -> str:
-    """
-    Executes the generated Python study script. 
-    It waits for the script to finish (approx 20 seconds) and returns the output log.
-    """
-    if not os.path.exists(script_path):
-        return f"Error: Script file '{script_path}' not found. Did you generate it first?"
-
-    try:
-        # We use sys.executable to ensure we use the same Python environment 
-        # that is running the server (ensures libraries like 'csv' are found).
-        result = subprocess.run(
-            [sys.executable, script_path],
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        
-        return f"Study execution completed successfully.\n\nOutput Log:\n{result.stdout}"
-
-    except subprocess.CalledProcessError as e:
-        return f"Error running study:\nStandard Output: {e.stdout}\nStandard Error: {e.stderr}"
-    except Exception as e:
-        return f"An unexpected error occurred: {str(e)}"
     
 @mcp.tool()
 def build_studypy_from_json(study_name: str, studypy_path: str) -> str:
@@ -360,6 +335,24 @@ def run_study_script(script_path: str = "study.py") -> str:
         return f"Error running study:\nStandard Output: {e.stdout}\nStandard Error: {e.stderr}"
     except Exception as e:
         return f"An unexpected error occurred: {str(e)}"
+
+@mcp.tool()
+def get_study_progress(csv_path: str = "output.csv") -> str:
+    """
+    Checks the current progress of the study by counting rows in the output CSV.
+    """
+    if not os.path.exists(csv_path):
+        return "Study has not started yet (output file not found)."
     
+    try:
+        with open(csv_path, 'r') as f:
+            # Subtract 1 for header; if file is empty or just header, returns 0
+            row_count = sum(1 for row in f) - 1
+            
+        if row_count < 0: row_count = 0
+        return f"Current Progress: {row_count} iterations completed."
+    except Exception as e:
+        return f"Error reading progress: {str(e)}"
+        
 if __name__ == "__main__":
     mcp.run()

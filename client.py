@@ -4,7 +4,8 @@ from mcp.client.stdio import stdio_client
 import ollama
 
 # Configuration
-OLLAMA_MODEL = "qwen38B_analyst:latest"
+# OLLAMA_MODEL = "qwen38B_analyst:latest"
+OLLAMA_MODEL = "qwen38b_studybuilder:latest"
 SERVER_SCRIPT = "server.py" 
 
 async def run():
