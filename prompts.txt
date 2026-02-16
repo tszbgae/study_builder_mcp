@@ -1,0 +1,3 @@
+i would like to add an input parameter called speed, lower bound 0 upper bound 5.5
+
+i would like to add a second input parameter called agility, lower bound -10 upper bound 10

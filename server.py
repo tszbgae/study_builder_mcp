@@ -4,6 +4,9 @@ import json
 import os
 import csv
 from pydantic import BaseModel, Field
+import subprocess
+import sys
+
 
 # Initialize the server
 mcp = FastMCP("StudyBuilder")
@@ -37,6 +40,106 @@ def save_study(study_data: Dict) -> str:
     with open(path, 'w') as f:
         json.dump(study_data, f, indent=4)
     return f"Study saved successfully to {path}"
+
+def build_studypy(study_config: dict,output_script_name: str = "study.py") -> str:
+    """
+    Reads a study.json and generates a study.py runner script.
+    """
+
+    # Extract configuration
+    exe_path = study_config.get("executable_path", "unknown_path")
+    inputs = study_config.get("inputs", [])
+    outputs = study_config.get("outputs", [])
+    
+    # 1. Prepare Input Logic (Random generation)
+    # We build strings like: var_name = random.uniform(lower, upper)
+    input_generators = []
+    input_names = []
+    for inp in inputs:
+        name = inp["name"]
+        low = inp["lower_bound"]
+        high = inp["upper_bound"]
+        input_generators.append(f"    {name} = random.uniform({low}, {high})")
+        input_names.append(name)
+
+    # 2. Prepare Output Logic (Mock functions)
+    # We create dummy relationships so the data looks real.
+    # Example: output = sum(inputs) + random_noise
+    output_generators = []
+    output_names = []
+    
+    # Create a string of all input variables to use in the mock formula
+    sum_inputs_str = " + ".join(input_names) if input_names else "0"
+    
+    for i, out_name in enumerate(outputs):
+        # We assign slightly different logic to each output so they aren't identical
+        # output_1 = (sum of inputs) * (index + 1)
+        output_generators.append(f"    {out_name} = ({sum_inputs_str}) * {i + 1} * random.uniform(0.9, 1.1)")
+        output_names.append(out_name)
+
+    # 3. Construct the Return Dictionary
+    all_fields = input_names + output_names
+    return_dict_lines = [f'        "{f}": {f}' for f in all_fields]
+    return_dict_str = ",\n".join(return_dict_lines)
+
+    # 4. Generate the full script content
+    script_content = f"""import csv
+import time
+import random
+import os
+
+# --- Configuration ---
+executable = "{exe_path}"
+
+def model():
+    \"\"\"
+    Generates inputs based on bounds and calculates mock outputs.
+    \"\"\"
+    # 1. Generate Inputs (Random Uniform)
+{chr(10).join(input_generators)}
+
+    # 2. Calculate Outputs (Mock Functions)
+{chr(10).join(output_generators)}
+
+    return {{
+{return_dict_str}
+    }}
+
+if __name__ == "__main__":
+    output_csv = "output.csv"
+    headers = {all_fields}
+    
+    print(f"Starting study run for executable: {{executable}}")
+    print(f"Saving data to {{output_csv}}...")
+
+    # Create CSV and write headers
+    with open(output_csv, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=headers)
+        writer.writeheader()
+
+    # Run for 20 seconds (1 iteration per second)
+    for i in range(20):
+        # Run the model
+        data = model()
+        
+        # Append to CSV
+        with open(output_csv, 'a', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=headers)
+            writer.writerow(data)
+            
+        print(f"Step {{i+1}}/20: Written row.")
+        
+        # Wait 1 second
+        time.sleep(1)
+
+    print("Study complete.")
+"""
+
+    # Write the file
+    with open(output_script_name, 'w') as f:
+        f.write(script_content)
+
+    return f"Successfully generated '{output_script_name}"
 
 # --- Tools ---
 
@@ -194,5 +297,69 @@ def get_study_status(study_name: str) -> str:
         
     return "\n".join(report)
 
+@mcp.tool()
+def run_study_script(script_path: str = "study.py") -> str:
+    """
+    Executes the generated Python study script. 
+    It waits for the script to finish (approx 20 seconds) and returns the output log.
+    """
+    if not os.path.exists(script_path):
+        return f"Error: Script file '{script_path}' not found. Did you generate it first?"
+
+    try:
+        # We use sys.executable to ensure we use the same Python environment 
+        # that is running the server (ensures libraries like 'csv' are found).
+        result = subprocess.run(
+            [sys.executable, script_path],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        return f"Study execution completed successfully.\n\nOutput Log:\n{result.stdout}"
+
+    except subprocess.CalledProcessError as e:
+        return f"Error running study:\nStandard Output: {e.stdout}\nStandard Error: {e.stderr}"
+    except Exception as e:
+        return f"An unexpected error occurred: {str(e)}"
+    
+@mcp.tool()
+def build_studypy_from_json(study_name: str, studypy_path: str) -> str:
+    """
+    Builds the study python file from the study json file
+    """
+    try:
+        study = load_study(study_name)
+        msg = build_studypy(study,studypy_path)
+        return msg
+    except Exception as e:
+        return f"An unexpected error occurred: {str(e)}"
+
+@mcp.tool()
+def run_study_script(script_path: str = "study.py") -> str:
+    """
+    Executes the generated Python study script. 
+    It waits for the script to finish (approx 20 seconds) and returns the output log.
+    """
+    if not os.path.exists(script_path):
+        return f"Error: Script file '{script_path}' not found. Did you generate it first?"
+
+    try:
+        # We use sys.executable to ensure we use the same Python environment 
+        # that is running the server (ensures libraries like 'csv' are found).
+        result = subprocess.run(
+            [sys.executable, script_path],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        return f"Study execution completed successfully.\n\nOutput Log:\n{result.stdout}"
+
+    except subprocess.CalledProcessError as e:
+        return f"Error running study:\nStandard Output: {e.stdout}\nStandard Error: {e.stderr}"
+    except Exception as e:
+        return f"An unexpected error occurred: {str(e)}"
+    
 if __name__ == "__main__":
     mcp.run()

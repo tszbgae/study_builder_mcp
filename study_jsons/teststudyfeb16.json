@@ -1,0 +1,22 @@
+{
+    "study_name": "teststudyfeb16",
+    "executable_path": "/mnt/c/test.exe",
+    "inputs": [
+        {
+            "name": "speed",
+            "lower_bound": 0.0,
+            "upper_bound": 5.5
+        },
+        {
+            "name": "agility",
+            "lower_bound": -10.0,
+            "upper_bound": 10.0
+        }
+    ],
+    "outputs": [
+        "cost",
+        "tastiness",
+        "calories",
+        "stability"
+    ]
+}
