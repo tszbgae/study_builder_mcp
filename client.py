@@ -5,7 +5,7 @@ import ollama
 
 # Configuration
 # OLLAMA_MODEL = "qwen38B_analyst:latest"
-OLLAMA_MODEL = "qwen38b_studybuilder:latest"
+OLLAMA_MODEL = "qwen34b_studybuilder:latest"
 SERVER_SCRIPT = "server.py" 
 
 async def run():

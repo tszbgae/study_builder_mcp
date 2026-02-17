@@ -310,31 +310,41 @@ def build_studypy_from_json(study_name: str, studypy_path: str) -> str:
     except Exception as e:
         return f"An unexpected error occurred: {str(e)}"
 
+
 @mcp.tool()
 def run_study_script(script_path: str = "study.py") -> str:
     """
-    Executes the generated Python study script. 
-    It waits for the script to finish (approx 20 seconds) and returns the output log.
+    Executes the study script in the BACKGROUND.
+    Returns immediately with the Process ID (PID) so you can continue prompting.
+    Output is redirected to 'study_execution.log'.
     """
     if not os.path.exists(script_path):
-        return f"Error: Script file '{script_path}' not found. Did you generate it first?"
+        return f"Error: Script '{script_path}' not found."
 
     try:
-        # We use sys.executable to ensure we use the same Python environment 
-        # that is running the server (ensures libraries like 'csv' are found).
-        result = subprocess.run(
+        # We open a log file so we don't lose the output
+        log_file = open("study_execution.log", "w")
+
+        # Popen starts the process non-blocking
+        process = subprocess.Popen(
             [sys.executable, script_path],
-            capture_output=True,
-            text=True,
-            check=True
+            stdout=log_file,
+            stderr=subprocess.STDOUT, # Merge errors into the same log
+            shell=False
         )
         
-        return f"Study execution completed successfully.\n\nOutput Log:\n{result.stdout}"
+        # Note: We don't close log_file here immediately because the subprocess 
+        # needs it open. It will be closed by the OS when the subprocess ends 
+        # or we can rely on Python garbage collection to close the python handle eventually.
+        # For a long-running server, it's safer to let the subprocess handle its own logging,
+        # but for this utility, passing the file handle is the simplest method.
+        
+        return (f"Study started in background (PID: {process.pid}). "
+                f"Output is being written to 'study_execution.log'. "
+                f"You can now use 'get_study_progress' to monitor it.")
 
-    except subprocess.CalledProcessError as e:
-        return f"Error running study:\nStandard Output: {e.stdout}\nStandard Error: {e.stderr}"
     except Exception as e:
-        return f"An unexpected error occurred: {str(e)}"
+        return f"Failed to start background process: {str(e)}"
 
 @mcp.tool()
 def get_study_progress(csv_path: str = "output.csv") -> str:
@@ -353,6 +363,33 @@ def get_study_progress(csv_path: str = "output.csv") -> str:
         return f"Current Progress: {row_count} iterations completed."
     except Exception as e:
         return f"Error reading progress: {str(e)}"
+    
+@mcp.tool()
+def view_results_dashboard() -> str:
+    """
+    Launches a Streamlit dashboard to visualize the study results (output.csv).
+    The dashboard will open in your default web browser (usually http://localhost:8501).
+    """
+    dashboard_script = "dashboard.py"
+    
+    if not os.path.exists(dashboard_script):
+        # Allow the tool to create the file if it doesn't exist yet
+        # (Self-correction mechanism)
+        return "Error: dashboard.py not found. Please create the dashboard file first."
+
+    try:
+        # Launch Streamlit in the background
+        # We redirect stdout/stderr to devnull to keep the console clean
+        # You can access it at http://localhost:8501
+        subprocess.Popen(
+            [sys.executable, "-m", "streamlit", "run", dashboard_script],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        
+        return "Dashboard launched successfully! You can view it at http://localhost:8501"
+    except Exception as e:
+        return f"Failed to launch dashboard: {str(e)}"
         
 if __name__ == "__main__":
     mcp.run()

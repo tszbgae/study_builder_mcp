@@ -1,0 +1,6 @@
+streamlit
+fastmcp
+ollama
+pydantic
+pandas
+plotly
